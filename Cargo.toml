@@ -1,0 +1,4 @@
+[workspace]
+members = [
+    'aqa_aoc',
+]
