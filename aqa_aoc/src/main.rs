@@ -1,7 +1,8 @@
 use anyhow::Context;
 use serde::Deserialize;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
+use std::path::Path;
 use std::process::Command;
 use thiserror::Error;
 use ureq::Cookie;
@@ -20,6 +21,8 @@ pub enum CargoTomlParserError {
 	FailedToGetWorkspace,
 	#[error("failed to get \"members\" array")]
 	FailedToGetMembers,
+	#[error("failed to get \"dependencies\" section")]
+	FailedToGetDependencies,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -31,17 +34,105 @@ fn main() -> anyhow::Result<()> {
 		toml::from_slice(&std::fs::read("Cargo.toml").context("failed to read Cargo.toml")?)
 			.context("failed to parse Cargo.toml")?;
 
-	let day = add_new_day_to_workspace(&mut cargo_workspace)?;
+	let day = get_day_we_are_working_with(&mut cargo_workspace)?;
+	println!("Working with day: {}", day.get_day());
 
-	println!("Next day: {}", day);
-	println!("Adding \"day_{}\" to workspace members", day);
+	let day_crate_name = day.get_crate_name();
 
-	let mut cargo_workspace_file = File::create("Cargo.toml")?;
-	let cargo_workspace_str = toml::to_string_pretty(&cargo_workspace)?;
-	cargo_workspace_file.write_all(cargo_workspace_str.as_bytes())?;
+	if let Day::NewDay(day) = day {
+		println!("Adding \"day_{}\" to workspace members", day);
 
-	let new_crate_name = format!("day_{}", day);
+		let mut cargo_workspace_file = File::create("Cargo.toml")?;
+		let cargo_workspace_str = toml::to_string_pretty(&cargo_workspace)?;
+		cargo_workspace_file.write_all(cargo_workspace_str.as_bytes())?;
 
+		create_crate_for_new_day(&day_crate_name)?;
+	}
+
+	std::env::set_current_dir(&day_crate_name)?;
+
+	println!("Downloading day {} input...", day.get_day());
+
+	let day_1_input = get_input(cfg.year, day.get_day(), &cfg.session_cookie)?;
+
+	let mut input_file = File::create("input.txt")?;
+	input_file.write_all(day_1_input.as_bytes())?;
+
+	println!("Input saved to {}/input.txt", day_crate_name);
+
+	Ok(())
+}
+
+#[derive(Copy, Clone)]
+enum Day {
+	NewDay(u32),
+	CreatedBefore(u32),
+}
+
+impl Day {
+	fn get_day(&self) -> u32 {
+		match self {
+			Day::NewDay(day) | Day::CreatedBefore(day) => *day,
+		}
+	}
+
+	fn get_crate_name(&self) -> String {
+		format!("day_{}", self.get_day())
+	}
+}
+
+fn get_day_we_are_working_with(cargo_workspace: &mut toml::Value) -> anyhow::Result<Day> {
+	let workspace = cargo_workspace
+		.get_mut("workspace")
+		.ok_or(CargoTomlParserError::FailedToGetWorkspace)?;
+	let members = workspace
+		.get_mut("members")
+		.ok_or(CargoTomlParserError::FailedToGetMembers)?
+		.as_array_mut()
+		.ok_or(CargoTomlParserError::FailedToGetMembers)?;
+
+	let mut last_day_without_input = None;
+	for dir in fs::read_dir(".")?
+		.filter_map(Result::ok)
+		.filter(|v| v.path().is_dir())
+	{
+		let day = dir
+			.path()
+			.file_name()
+			.and_then(|name| name.to_str())
+			.and_then(|name| name.strip_prefix("day_"))
+			.and_then(|day| day.parse::<u32>().ok());
+
+		let day = match day {
+			Some(v) => v,
+			None => continue,
+		};
+
+		if !dir.path().join("input.txt").exists() {
+			last_day_without_input = Some(day);
+			break;
+		}
+	}
+
+	match last_day_without_input {
+		Some(v) => Ok(Day::CreatedBefore(v)),
+		None => {
+			let day = members
+				.iter()
+				.filter_map(toml::Value::as_str)
+				.filter_map(|str| str.strip_prefix("day_"))
+				.filter_map(|day| day.parse::<u32>().ok())
+				.max()
+				.unwrap_or(0)
+				+ 1;
+
+			members.push(toml::Value::String(format!("day_{}", day)));
+			Ok(Day::NewDay(day))
+		}
+	}
+}
+
+fn create_crate_for_new_day(new_crate_name: &str) -> anyhow::Result<()> {
 	println!("Creating new crate (\"{}\")", new_crate_name);
 
 	let cargo_new_status = Command::new("cargo")
@@ -54,44 +145,39 @@ fn main() -> anyhow::Result<()> {
 		));
 	}
 
-	std::env::set_current_dir(&new_crate_name)?;
-
-	println!("Downloading day {} input...", day);
-
-	let day_1_input = get_input(cfg.year, day, &cfg.session_cookie)?;
-
-	let mut input_file = File::create("input.txt")?;
-	input_file.write_all(day_1_input.as_bytes())?;
-
-	println!("Input saved to {}/input.txt", new_crate_name);
+	add_useful_deps(&new_crate_name)?;
 
 	Ok(())
 }
 
-fn add_new_day_to_workspace(cargo_workspace: &mut toml::Value) -> anyhow::Result<u32> {
-	let workspace = cargo_workspace
-		.get_mut("workspace")
-		.ok_or(CargoTomlParserError::FailedToGetWorkspace)?;
-	let members = workspace
-		.get_mut("members")
-		.ok_or(CargoTomlParserError::FailedToGetMembers)?
-		.as_array_mut()
-		.ok_or(CargoTomlParserError::FailedToGetMembers)?;
+fn add_useful_deps(new_crate_name: &str) -> anyhow::Result<()> {
+	let cargo_toml_path = Path::new(new_crate_name).join("Cargo.toml");
+	let mut cargo_toml: toml::Value = toml::from_slice(
+		&std::fs::read(&cargo_toml_path)
+			.with_context(|| format!("failed to read {}", cargo_toml_path.display()))?,
+	)
+	.with_context(|| format!("failed to parse {}", cargo_toml_path.display()))?;
 
-	let day = find_next_day(members);
-	members.push(toml::Value::String(format!("day_{}", day)));
-	Ok(day)
-}
+	let dependencies = cargo_toml
+		.get_mut("dependencies")
+		.ok_or(CargoTomlParserError::FailedToGetDependencies)?
+		.as_table_mut()
+		.ok_or(CargoTomlParserError::FailedToGetDependencies)?;
 
-fn find_next_day(members: &Vec<toml::Value>) -> u32 {
-	members
-		.iter()
-		.filter_map(toml::Value::as_str)
-		.filter_map(|str| str.strip_prefix("day_"))
-		.filter_map(|day| day.parse::<u32>().ok())
-		.max()
-		.unwrap_or(0)
-		+ 1
+	dependencies.insert("anyhow".to_string(), toml::Value::String("1.0".to_string()));
+	dependencies.insert(
+		"itertools".to_string(),
+		toml::Value::String("0.9".to_string()),
+	);
+	dependencies.insert("regex".to_string(), toml::Value::String("1.4".to_string()));
+
+	let mut cargo_toml_file = File::create(&cargo_toml_path)?;
+	let cargo_toml_str = toml::to_string_pretty(&cargo_toml)?;
+	cargo_toml_file.write_all(cargo_toml_str.as_bytes())?;
+
+	println!("[dependencies] updated");
+
+	Ok(())
 }
 
 fn get_input(year: u32, day: u32, cookie: &str) -> anyhow::Result<String> {
