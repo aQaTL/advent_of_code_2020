@@ -123,8 +123,7 @@ fn get_day_we_are_working_with(cargo_workspace: &mut toml::Value) -> anyhow::Res
 				.filter_map(|str| str.strip_prefix("day_"))
 				.filter_map(|day| day.parse::<u32>().ok())
 				.max()
-				.unwrap_or(0)
-				+ 1;
+				.unwrap_or(0) + 1;
 
 			members.push(toml::Value::String(format!("day_{}", day)));
 			Ok(Day::NewDay(day))
