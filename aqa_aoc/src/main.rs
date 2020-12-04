@@ -190,12 +190,14 @@ fn get_input(year: u32, day: u32, cookie: &str) -> anyhow::Result<String> {
 	let agent = ureq::agent();
 	agent.set_cookie(cookie);
 
-	let mut request = agent.get(&format!(
+	let req_adr = format!(
 		"{addr}/{year}/day/{day}/input",
 		addr = AOC_ADDR,
 		year = year,
 		day = day
-	));
+	);
+	println!("Request addr: {}", req_adr);
+	let mut request = agent.get(&req_adr);
 	let response = request.call();
 
 	if response.synthetic() {
