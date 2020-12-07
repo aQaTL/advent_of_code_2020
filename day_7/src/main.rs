@@ -36,22 +36,18 @@ fn main() -> anyhow::Result<()> {
 	let mut part_1 = 0;
 	for (_, bags_inside) in bags.iter() {
 		let mut search_queue: Vec<&Bag> = Vec::new();
-		let mut searched: Vec<&str> = Vec::new();
 		search_queue.extend(bags_inside);
-		let mut this_shiny_gold_count = 0;
+		let mut shiny_gold_count = 0;
 		while let Some((bag_name, _)) = search_queue.pop() {
-			if !searched.contains(&bag_name.as_str()) {
-				if bag_name == "shiny gold" {
-					this_shiny_gold_count += 1;
-				} else {
-					if let Some(v) = bags.get(bag_name) {
-						search_queue.extend(v);
-					}
-					searched.push(bag_name);
+			if bag_name == "shiny gold" {
+				shiny_gold_count += 1;
+			} else {
+				if let Some(v) = bags.get(bag_name) {
+					search_queue.extend(v);
 				}
 			}
 		}
-		if this_shiny_gold_count > 0 {
+		if shiny_gold_count > 0 {
 			part_1 += 1;
 		}
 	}
