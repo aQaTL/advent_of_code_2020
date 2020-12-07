@@ -1,0 +1,10 @@
+[dependencies]
+anyhow = '1.0'
+itertools = '0.9'
+regex = '1.4'
+
+[package]
+authors = ['aQaTL <mmsoltys@outlook.com>']
+edition = '2018'
+name = 'day_7'
+version = '0.1.0'
