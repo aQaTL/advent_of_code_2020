@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
 		.ok_or_else(|| anyhow::anyhow!("Part 1 fail"))?;
 	println!("Part 1: {}", invalid_number);
 
-	let part_2 = (2..(input.len() / 2))
+	let part_2 = (2..input.len())
 		.into_iter()
 		.find_map(|i| {
 			input
