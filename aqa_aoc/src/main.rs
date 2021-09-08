@@ -25,7 +25,28 @@ pub enum CargoTomlParserError {
 	FailedToGetDependencies,
 }
 
+#[derive(Debug)]
+struct CliApp {
+	day: Option<u32>,
+}
+
+impl CliApp {
+	fn from_args() -> anyhow::Result<CliApp> {
+		let mut day = None;
+
+		for arg in std::env::args().skip(1) {
+			if let Some(arg) = arg.strip_prefix("--day=") {
+				day = Some(arg.parse::<u32>()?);
+			}
+		}
+
+		Ok(CliApp { day })
+	}
+}
+
 fn main() -> anyhow::Result<()> {
+	let cli = CliApp::from_args()?;
+
 	let cfg: AocCfg =
 		toml::from_slice(&std::fs::read("aoc_cfg.toml").context("failed to read aoc_cfg.toml")?)
 			.context("failed to parse aoc_cfg.toml")?;
@@ -34,7 +55,11 @@ fn main() -> anyhow::Result<()> {
 		toml::from_slice(&std::fs::read("Cargo.toml").context("failed to read Cargo.toml")?)
 			.context("failed to parse Cargo.toml")?;
 
-	let day = get_day_we_are_working_with(&mut cargo_workspace)?;
+	let day = match cli.day {
+		Some(specific_day) => work_with_specific_day(&mut cargo_workspace, specific_day)?,
+		None => get_day_we_are_working_with(&mut cargo_workspace)?,
+	};
+
 	println!("Working with day: {}", day.get_day());
 
 	let day_crate_name = day.get_crate_name();
@@ -127,6 +152,49 @@ fn get_day_we_are_working_with(cargo_workspace: &mut toml::Value) -> anyhow::Res
 
 			members.push(toml::Value::String(format!("day_{}", day)));
 			Ok(Day::NewDay(day))
+		}
+	}
+}
+
+fn work_with_specific_day(
+	cargo_workspace: &mut toml::Value,
+	specific_day: u32,
+) -> anyhow::Result<Day> {
+	let workspace = cargo_workspace
+		.get_mut("workspace")
+		.ok_or(CargoTomlParserError::FailedToGetWorkspace)?;
+	let members = workspace
+		.get_mut("members")
+		.ok_or(CargoTomlParserError::FailedToGetMembers)?
+		.as_array_mut()
+		.ok_or(CargoTomlParserError::FailedToGetMembers)?;
+
+	let mut day_project = None;
+	for dir in fs::read_dir(".")?
+		.filter_map(Result::ok)
+		.filter(|v| v.path().is_dir())
+	{
+		let day = dir
+			.path()
+			.file_name()
+			.and_then(|name| name.to_str())
+			.and_then(|name| name.strip_prefix("day_"))
+			.and_then(|day| day.parse::<u32>().ok());
+
+		match day {
+			Some(day) if day == specific_day => {
+				day_project = Some(day);
+				break;
+			}
+			_ => (),
+		};
+	}
+
+	match day_project {
+		Some(v) => Ok(Day::CreatedBefore(v)),
+		None => {
+			members.push(toml::Value::String(format!("day_{}", specific_day)));
+			Ok(Day::NewDay(specific_day))
 		}
 	}
 }
