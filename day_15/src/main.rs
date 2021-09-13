@@ -26,37 +26,25 @@ fn solve(input: &str, cutoff: u64) -> Result<u64> {
 	for turn in (input.len() as u64 + 1)..=cutoff {
 		match mem.get_mut(&last_num) {
 			Some((_last_turn, None)) => {
-				match mem.get_mut(&0) {
-					Some((_last_turn, ref mut opt @ None)) => {
-						*opt = Some(turn);
-					}
-					Some((last_turn, Some(last_turn_2))) => {
-						*last_turn = *last_turn_2;
-						*last_turn_2 = turn;
-					}
-					None => {
-						mem.insert(0, (turn, None));
-					}
-				}
 				last_num = 0;
 			}
 			Some((last_turn, Some(last_turn_2))) => {
 				last_num = *last_turn_2 - *last_turn;
-				match mem.get_mut(&last_num) {
-					Some((_last_turn, ref mut opt @ None)) => {
-						*opt = Some(turn);
-					}
-					Some((last_turn, Some(last_turn_2))) => {
-						*last_turn = *last_turn_2;
-						*last_turn_2 = turn;
-					}
-					None => {
-						mem.insert(last_num, (turn, None));
-					}
-				}
 			}
 			None => {
 				bail!("invalid state");
+			}
+		}
+		match mem.get_mut(&last_num) {
+			Some((_last_turn, ref mut opt @ None)) => {
+				*opt = Some(turn);
+			}
+			Some((last_turn, Some(last_turn_2))) => {
+				*last_turn = *last_turn_2;
+				*last_turn_2 = turn;
+			}
+			None => {
+				mem.insert(last_num, (turn, None));
 			}
 		}
 	}
@@ -83,30 +71,82 @@ mod tests {
 
 	#[test]
 	fn ex1() {
-		assert_eq!(super::part_1(EX1).unwrap(), EX1_SOLUTION);
+		assert_eq!(super::solve(EX1, 2020).unwrap(), EX1_SOLUTION);
 	}
+
 	#[test]
 	fn ex2() {
-		assert!(matches!(super::part_1(EX2), Ok(EX2_SOLUTION)));
+		assert_eq!(super::solve(EX2, 2020).unwrap(), EX2_SOLUTION);
 	}
+
 	#[test]
 	fn ex3() {
-		assert!(matches!(super::part_1(EX3), Ok(EX3_SOLUTION)));
+		assert_eq!(super::solve(EX3, 2020).unwrap(), EX3_SOLUTION);
 	}
+
 	#[test]
 	fn ex4() {
-		assert!(matches!(super::part_1(EX4), Ok(EX4_SOLUTION)));
+		assert_eq!(super::solve(EX4, 2020).unwrap(), EX4_SOLUTION);
 	}
+
 	#[test]
 	fn ex5() {
-		assert!(matches!(super::part_1(EX5), Ok(EX5_SOLUTION)));
+		assert_eq!(super::solve(EX5, 2020).unwrap(), EX5_SOLUTION);
 	}
+
 	#[test]
 	fn ex6() {
-		assert!(matches!(super::part_1(EX6), Ok(EX6_SOLUTION)));
+		assert_eq!(super::solve(EX6, 2020).unwrap(), EX6_SOLUTION);
 	}
+
 	#[test]
 	fn ex7() {
-		assert!(matches!(super::part_1(EX7), Ok(EX7_SOLUTION)));
+		assert_eq!(super::solve(EX7, 2020).unwrap(), EX7_SOLUTION);
+	}
+
+	const EX1_P2: &str = "0,3,6";
+	const EX1_P2_SOLUTION: u64 = 175594;
+	const EX2_P2: &str = "1,3,2";
+	const EX2_P2_SOLUTION: u64 = 2578;
+	const EX3_P2: &str = "2,1,3";
+	const EX3_P2_SOLUTION: u64 = 3544142;
+	const EX4_P2: &str = "1,2,3";
+	const EX4_P2_SOLUTION: u64 = 261214;
+	const EX5_P2: &str = "2,3,1";
+	const EX5_P2_SOLUTION: u64 = 6895259;
+	const EX6_P2: &str = "3,2,1";
+	const EX6_P2_SOLUTION: u64 = 18;
+	const EX7_P2: &str = "3,1,2";
+	const EX7_P2_SOLUTION: u64 = 362;
+
+	#[test]
+	fn ex1_p2() {
+		assert_eq!(super::solve(EX1_P2, 30000000).unwrap(), EX1_P2_SOLUTION);
+	}
+
+	#[test]
+	fn ex2_p2() {
+		assert_eq!(super::solve(EX2_P2, 30000000).unwrap(), EX2_P2_SOLUTION);
+	}
+
+	#[test]
+	fn ex3_p2() {
+		assert_eq!(super::solve(EX3_P2, 30000000).unwrap(), EX3_P2_SOLUTION);
+	}
+	#[test]
+	fn ex4_p2() {
+		assert_eq!(super::solve(EX4_P2, 30000000).unwrap(), EX4_P2_SOLUTION);
+	}
+	#[test]
+	fn ex5_p2() {
+		assert_eq!(super::solve(EX5_P2, 30000000).unwrap(), EX5_P2_SOLUTION);
+	}
+	#[test]
+	fn ex6_p2() {
+		assert_eq!(super::solve(EX6_P2, 30000000).unwrap(), EX6_P2_SOLUTION);
+	}
+	#[test]
+	fn ex7_p2() {
+		assert_eq!(super::solve(EX7_P2, 30000000).unwrap(), EX7_P2_SOLUTION);
 	}
 }
