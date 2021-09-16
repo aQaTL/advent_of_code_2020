@@ -237,6 +237,7 @@ fn add_useful_deps(new_crate_name: &str) -> anyhow::Result<()> {
 		toml::Value::String("0.9".to_string()),
 	);
 	dependencies.insert("regex".to_string(), toml::Value::String("1.4".to_string()));
+	dependencies.insert("nom".to_string(), toml::Value::String("7.0.0".to_string()));
 
 	let mut cargo_toml_file = File::create(&cargo_toml_path)?;
 	let cargo_toml_str = toml::to_string_pretty(&cargo_toml)?;

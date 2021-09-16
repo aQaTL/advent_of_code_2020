@@ -1,0 +1,10 @@
+[dependencies]
+anyhow = '1.0'
+itertools = '0.9'
+regex = '1.4'
+nom = '7.0.0'
+
+[package]
+edition = '2018'
+name = 'day_18'
+version = '0.1.0'
